@@ -2,30 +2,25 @@
 
 import json
 import os
+import numpy as np
 from flask import Blueprint, request, jsonify
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-print(">>> DEBUG: query_vec shape:", query_vec.shape)
-print(">>> DEBUG: embeddings shape:", embeddings.shape)
-print(">>> DEBUG: similarity scores:", similarity[:5])  # show top 5 scores
-print(">>> DEBUG: best match index:", top_index)
-print(">>> DEBUG: selected line:", lyric_chunks[top_index])
-
-# ✅ Load only the 2–3 line lyric chunks
+# Load embedded chunk data
 json_path = os.path.join(os.path.dirname(__file__), "smiths_lyrics_refined_chunks_embedded_cleaned.json")
 with open(json_path, encoding="utf-8") as f:
     lyrics_data = json.load(f)
 
-# ✅ Extract chunks and metadata
+# Extract data
 lyric_chunks = [entry["chunk"] for entry in lyrics_data]
 line_sources = [{"song": entry["song"], "album": entry["album"]} for entry in lyrics_data]
+embeddings = np.array([entry["embedding"] for entry in lyrics_data])
 
-# ✅ Build the TF-IDF model
-vectorizer = TfidfVectorizer(stop_words="english")
-tfidf_matrix = vectorizer.fit_transform(lyric_chunks)
+# Load sentence transformer model
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# ✅ Set up Flask Blueprint
+# Set up Flask blueprint
 morrissey_api = Blueprint("morrissey_api", __name__)
 
 @morrissey_api.route("/api/morrissey", methods=["POST"])
@@ -36,18 +31,21 @@ def get_morrissey_reply():
     if not user_input:
         return jsonify({"error": "No message provided"}), 400
 
-    # Match query to lyric chunks
-    query_vec = vectorizer.transform([user_input])
-    similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
+    # Embed the query
+    query_vec = model.encode([user_input])
+    
+    # ✅ DEBUG INFO
+    print(">>> DEBUG: query_vec shape:", np.array(query_vec).shape)
+    print(">>> DEBUG: embeddings shape:", embeddings.shape)
+
+    similarity = cosine_similarity(query_vec, embeddings).flatten()
     top_index = similarity.argmax()
 
-    # ✅ DEBUG: Show chunk being returned
-    print(">>> DEBUG: Returning CHUNK (not full song):")
-    print(lyric_chunks[top_index])
+    print(">>> DEBUG: best match index:", top_index)
+    print(">>> DEBUG: selected chunk:", lyric_chunks[top_index])
 
     return jsonify({
         "reply": lyric_chunks[top_index],
         "song": line_sources[top_index]["song"],
         "album": line_sources[top_index]["album"]
     })
-    
