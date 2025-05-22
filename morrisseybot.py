@@ -6,6 +6,12 @@ from flask import Blueprint, request, jsonify
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+print(">>> DEBUG: query_vec shape:", query_vec.shape)
+print(">>> DEBUG: embeddings shape:", embeddings.shape)
+print(">>> DEBUG: similarity scores:", similarity[:5])  # show top 5 scores
+print(">>> DEBUG: best match index:", top_index)
+print(">>> DEBUG: selected line:", lyric_chunks[top_index])
+
 # ✅ Load only the 2–3 line lyric chunks
 json_path = os.path.join(os.path.dirname(__file__), "smiths_lyrics_refined_chunks_embedded_cleaned.json")
 with open(json_path, encoding="utf-8") as f:
@@ -44,3 +50,4 @@ def get_morrissey_reply():
         "song": line_sources[top_index]["song"],
         "album": line_sources[top_index]["album"]
     })
+    
