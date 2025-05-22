@@ -4,8 +4,8 @@ from morrisseybot import morrissey_api
 
 app = Flask(__name__)
 
-# ✅ Enable CORS with full preflight support for Vercel
-CORS(app, resources={r"/api/*": {"origins": "https://morrisseybot-ui.vercel.app"}}, allow_headers="*", methods=["GET", "POST", "OPTIONS"])
+# ✅ 100% Vercel-compatible CORS setup
+CORS(app, origins=["https://morrisseybot-ui.vercel.app"], supports_credentials=True)
 
 app.register_blueprint(morrissey_api)
 
