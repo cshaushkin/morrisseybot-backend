@@ -4,8 +4,8 @@ from morrisseybot import morrissey_api
 
 app = Flask(__name__)
 
-# ✅ Allow requests from your frontend (or from anywhere during development)
-CORS(app, resources={r"/api/*": {"origins": "https://morrisseybot-ui.vercel.app"}})
+# ✅ Correctly configure CORS to handle preflight
+CORS(app, resources={r"/api/*": {"origins": "https://morrisseybot-ui.vercel.app"}}, supports_credentials=True)
 
 app.register_blueprint(morrissey_api)
 
