@@ -7,4 +7,4 @@ CORS(app)  # 🚨 Add this line
 app.register_blueprint(morrissey_api)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000)
