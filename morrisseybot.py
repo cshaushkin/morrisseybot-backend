@@ -7,13 +7,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import openai
 
-# ✅ Load OpenAI API key
+# ✅ Load OpenAI API key from environment
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# ✅ Create Blueprint BEFORE using it in route decorators
+# ✅ Create Flask Blueprint
 morrissey_api = Blueprint("morrissey_api", __name__)
 
-# ✅ Load lyric chunks and embeddings
+# ✅ Load lyric chunks + embeddings
 json_path = os.path.join(os.path.dirname(__file__), "smiths_lyrics_refined_chunks_embedded_cleaned.json")
 with open(json_path, encoding="utf-8") as f:
     lyrics_data = json.load(f)
@@ -22,10 +22,10 @@ lyric_chunks = [entry["chunk"] for entry in lyrics_data]
 line_sources = [{"song": entry["song"], "album": entry["album"]} for entry in lyrics_data]
 embeddings = np.array([entry["embedding"] for entry in lyrics_data])
 
-# ✅ Load sentence transformer model
+# ✅ Load embedding model
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# ✅ GPT-4 email generation function
+# ✅ GPT-4 Email Generator (openai==0.28 style)
 def generate_email_gpt(user_input, lyric):
     prompt = f"""
 You are Morrissey, responding to a fan's question with poetic melancholy, wit, and emotional distance.
@@ -42,9 +42,9 @@ Write a short, characterful email reply as Morrissey. Use irony and sign off as 
         temperature=0.9,
         max_tokens=300
     )
-    return response.choices[0].message.content.strip()
+    return response["choices"][0]["message"]["content"].strip()
 
-# ✅ Main route with logging and error capture
+# ✅ API Endpoint with Debug Logging
 @morrissey_api.route("/api/morrissey", methods=["POST", "OPTIONS"])
 @cross_origin(origin="https://morrisseybot-ui.vercel.app")
 def get_morrissey_reply():
@@ -53,12 +53,12 @@ def get_morrissey_reply():
 
         data = request.get_json(force=True)
         user_input = data.get("message", "")
-
         print(">>> DEBUG: User input:", user_input)
 
         if not user_input:
             return jsonify({"error": "No message provided"}), 400
 
+        # Encode input + compute similarity
         query_vec = model.encode([user_input])
         print(">>> DEBUG: Query vector shape:", query_vec.shape)
 
@@ -66,10 +66,10 @@ def get_morrissey_reply():
         top_index = similarity.argmax()
 
         chunk = lyric_chunks[top_index]
-        print(">>> DEBUG: Top lyric chunk:", chunk)
+        print(">>> DEBUG: Matched chunk:", chunk)
 
         email = generate_email_gpt(user_input, chunk)
-        print(">>> DEBUG: Email:", email)
+        print(">>> DEBUG: GPT Email generated")
 
         return jsonify({
             "reply": chunk,
