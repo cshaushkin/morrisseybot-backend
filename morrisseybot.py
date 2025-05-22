@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import openai
 
-# ✅ Load OpenAI API key from environment
+# ✅ Load OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ✅ Create Flask Blueprint
@@ -22,10 +22,10 @@ lyric_chunks = [entry["chunk"] for entry in lyrics_data]
 line_sources = [{"song": entry["song"], "album": entry["album"]} for entry in lyrics_data]
 embeddings = np.array([entry["embedding"] for entry in lyrics_data])
 
-# ✅ Load embedding model
+# ✅ Load sentence transformer model
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# ✅ GPT-4 Email Generator (openai==0.28 style)
+# ✅ GPT-3.5 Email Generator
 def generate_email_gpt(user_input, lyric):
     prompt = f"""
 You are Morrissey, responding to a fan's question with poetic melancholy, wit, and emotional distance.
@@ -37,14 +37,14 @@ Your Lyric: “{lyric}”
 Write a short, characterful email reply as Morrissey. Use irony and sign off as Morrissey.
 """
     response = openai.ChatCompletion.create(
-        model="gpt-4",
+        model="gpt-3.5-turbo",  # ✅ Updated from "gpt-4"
         messages=[{"role": "user", "content": prompt}],
         temperature=0.9,
         max_tokens=300
     )
     return response["choices"][0]["message"]["content"].strip()
 
-# ✅ API Endpoint with Debug Logging
+# ✅ MorrisseyBot API Endpoint
 @morrissey_api.route("/api/morrissey", methods=["POST", "OPTIONS"])
 @cross_origin(origin="https://morrisseybot-ui.vercel.app")
 def get_morrissey_reply():
@@ -58,7 +58,7 @@ def get_morrissey_reply():
         if not user_input:
             return jsonify({"error": "No message provided"}), 400
 
-        # Encode input + compute similarity
+        # Compute similarity
         query_vec = model.encode([user_input])
         print(">>> DEBUG: Query vector shape:", query_vec.shape)
 
