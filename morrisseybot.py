@@ -25,7 +25,7 @@ embeddings = np.array([entry["embedding"] for entry in lyrics_data])
 # ✅ Load sentence transformer model
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# ✅ GPT-3.5 Email Generator
+# ✅ GPT Email Generator (gpt-3.5-turbo)
 def generate_email_gpt(user_input, lyric):
     prompt = f"""
 You are Morrissey, responding to a fan's question with poetic melancholy, wit, and emotional distance.
@@ -37,16 +37,20 @@ Your Lyric: “{lyric}”
 Write a short, characterful email reply as Morrissey. Use irony and sign off as Morrissey.
 """
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",  # ✅ Updated from "gpt-4"
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.9,
         max_tokens=300
     )
     return response["choices"][0]["message"]["content"].strip()
 
-# ✅ MorrisseyBot API Endpoint
+# ✅ API Route with strict CORS allowance
 @morrissey_api.route("/api/morrissey", methods=["POST", "OPTIONS"])
-@cross_origin(origin="https://morrisseybot-ui.vercel.app")
+@cross_origin(
+    origin="https://morrisseybot-ui.vercel.app",
+    methods=["POST", "OPTIONS"],
+    allow_headers=["Content-Type"]
+)
 def get_morrissey_reply():
     try:
         print(">>> DEBUG: Received POST /api/morrissey")
@@ -58,7 +62,6 @@ def get_morrissey_reply():
         if not user_input:
             return jsonify({"error": "No message provided"}), 400
 
-        # Compute similarity
         query_vec = model.encode([user_input])
         print(">>> DEBUG: Query vector shape:", query_vec.shape)
 
