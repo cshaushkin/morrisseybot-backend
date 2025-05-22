@@ -6,18 +6,18 @@ from flask import Blueprint, request, jsonify
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Load flat line-by-line JSON from the same directory as this file
-json_path = os.path.join(os.path.dirname(__file__), "smiths_lyrics_full_tagged.json")
+# Load chunked lyric file
+json_path = os.path.join(os.path.dirname(__file__), "smiths_lyrics_chunks.json")
 with open(json_path, encoding="utf-8") as f:
     lyrics_data = json.load(f)
 
-# Build list of individual lyric lines and their metadata
-lyric_lines = [entry["line"] for entry in lyrics_data]
+# Build lyric chunks and associated metadata
+lyric_chunks = [entry["chunk"] for entry in lyrics_data]
 line_sources = [{"song": entry["song"], "album": entry["album"]} for entry in lyrics_data]
 
-# Build TF-IDF matrix for lyric lines
+# TF-IDF vectorization on lyric chunks
 vectorizer = TfidfVectorizer(stop_words="english")
-tfidf_matrix = vectorizer.fit_transform(lyric_lines)
+tfidf_matrix = vectorizer.fit_transform(lyric_chunks)
 
 # Set up Flask Blueprint
 morrissey_api = Blueprint("morrissey_api", __name__)
@@ -30,20 +30,16 @@ def get_morrissey_reply():
     if not user_input:
         return jsonify({"error": "No message provided"}), 400
 
-    # TF-IDF match
+    # Find best-matching lyric chunk
     query_vec = vectorizer.transform([user_input])
     similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
     top_index = similarity.argmax()
 
-    # DEBUG: print first few lines so you can verify it's working
-    print(">>> DEBUG: First few lyric lines loaded:")
-    for i in range(3):
-        print(f"{i+1}. {lyric_lines[i]}")
-
-    print(f">>> DEBUG: Selected match: {lyric_lines[top_index]}")
+    print(">>> DEBUG: Selected chunk:")
+    print(lyric_chunks[top_index])
 
     return jsonify({
-        "reply": lyric_lines[top_index],
+        "reply": lyric_chunks[top_index],
         "song": line_sources[top_index]["song"],
         "album": line_sources[top_index]["album"]
     })
