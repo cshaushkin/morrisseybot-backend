@@ -5,10 +5,6 @@ from flask import Blueprint, request, jsonify
 from flask_cors import cross_origin
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
-import openai
-
-# ✅ Load OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ✅ Create Flask Blueprint
 morrissey_api = Blueprint("morrissey_api", __name__)
@@ -25,26 +21,20 @@ embeddings = np.array([entry["embedding"] for entry in lyrics_data])
 # ✅ Load sentence transformer model
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# ✅ GPT Email Generator (gpt-3.5-turbo)
+# ✅ Free mock email generator
 def generate_email_gpt(user_input, lyric):
-    prompt = f"""
-You are Morrissey, responding to a fan's question with poetic melancholy, wit, and emotional distance.
+    return f"""Dear friend,
 
-Fan’s Question: “{user_input}”
+Your question — “{user_input}” — reminded me of something I once sang:
 
-Your Lyric: “{lyric}”
+    “{lyric}”
 
-Write a short, characterful email reply as Morrissey. Use irony and sign off as Morrissey.
-"""
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.9,
-        max_tokens=300
-    )
-    return response["choices"][0]["message"]["content"].strip()
+I hope this clarifies nothing at all.
 
-# ✅ API Route with strict CORS allowance
+Yours (begrudgingly),
+Morrissey"""
+
+# ✅ MorrisseyBot API Endpoint
 @morrissey_api.route("/api/morrissey", methods=["POST", "OPTIONS"])
 @cross_origin(
     origin="https://morrisseybot-ui.vercel.app",
@@ -72,7 +62,7 @@ def get_morrissey_reply():
         print(">>> DEBUG: Matched chunk:", chunk)
 
         email = generate_email_gpt(user_input, chunk)
-        print(">>> DEBUG: GPT Email generated")
+        print(">>> DEBUG: Mock email generated")
 
         return jsonify({
             "reply": chunk,
