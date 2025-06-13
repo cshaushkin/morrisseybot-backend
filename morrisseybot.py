@@ -27,42 +27,72 @@ HF_API_URL = "https://api-inference.huggingface.co/models/gpt2"
 HF_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")  # You'll need to set this in your environment
 
 def generate_morrissey_style_email(user_input, lyric):
-    # Create a prompt that captures Morrissey's style
-    prompt = f"""Dear friend,
+    # Create a more detailed prompt that better captures Morrissey's style
+    prompt = f"""Morrissey is writing an email response to a fan's question. His writing style is melancholic, witty, and often self-deprecating. He frequently references his own lyrics and uses dramatic language.
+
+Fan's question: "{user_input}"
+
+Morrissey's response:
+
+Dear friend,
 
 Your question — "{user_input}" — reminded me of something I once sang:
 
     "{lyric}"
 
-Let me tell you what I really think about this..."""
+*Morrissey continues writing in his characteristic style, expressing his thoughts about the question while maintaining his melancholic and witty tone. He might reference other songs or express his disdain for modern life. He should end with his signature sign-off.*
 
-    # Call Hugging Face API
+Yours (begrudgingly),
+Morrissey"""
+
+    # Call Hugging Face API with adjusted parameters
     headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_length": 300,
+            "max_length": 500,  # Increased for more context
             "num_return_sequences": 1,
-            "no_repeat_ngram_size": 2,
+            "no_repeat_ngram_size": 3,  # Increased to avoid repetition
             "do_sample": True,
-            "top_k": 50,
-            "top_p": 0.95,
-            "temperature": 0.7,
+            "top_k": 40,  # Slightly reduced for more focused output
+            "top_p": 0.92,  # Slightly reduced for more focused output
+            "temperature": 0.85,  # Increased for more creative responses
+            "repetition_penalty": 1.2,  # Added to reduce repetition
+            "length_penalty": 1.0,  # Added to encourage longer responses
         }
     }
     
     try:
         response = requests.post(HF_API_URL, headers=headers, json=payload)
-        response.raise_for_status()  # Raise an exception for bad status codes
+        response.raise_for_status()
         
-        # Extract the generated text from the response
+        # Extract and clean the generated text
         generated_text = response.json()[0]["generated_text"]
         
-        # Ensure we have a proper signature
-        if "Yours" not in generated_text:
-            generated_text += "\n\nYours (begrudgingly),\nMorrissey"
-        
-        return generated_text
+        # Extract only the response part (after the prompt)
+        try:
+            # Find where the actual response starts (after the prompt)
+            response_start = generated_text.find("Dear friend,")
+            if response_start != -1:
+                generated_text = generated_text[response_start:]
+            
+            # Clean up any extra newlines and ensure proper formatting
+            generated_text = "\n".join(line.strip() for line in generated_text.split("\n") if line.strip())
+            
+            # Ensure we have a proper signature
+            if "Yours" not in generated_text:
+                generated_text += "\n\nYours (begrudgingly),\nMorrissey"
+            elif not generated_text.endswith("Morrissey"):
+                # If there's a signature but it's not at the end, clean it up
+                parts = generated_text.split("Yours")
+                generated_text = parts[0].strip() + "\n\nYours" + parts[1].split("Morrissey")[0] + "Morrissey"
+            
+            return generated_text
+            
+        except Exception as e:
+            print(f"Error processing generated text: {e}")
+            # Fall back to the original text if processing fails
+            return generated_text
         
     except requests.exceptions.RequestException as e:
         print(f"Error calling Hugging Face API: {e}")
