@@ -1,6 +1,7 @@
 import json
 import os
 import numpy as np
+import requests
 from flask import Blueprint, request, jsonify
 from flask_cors import cross_origin
 from sklearn.metrics.pairwise import cosine_similarity
@@ -21,13 +22,56 @@ embeddings = np.array([entry["embedding"] for entry in lyrics_data])
 # ✅ Load sentence transformer model
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# ✅ Free mock email generator
-def generate_email_gpt(user_input, lyric):
-    return f"""Dear friend,
+# Hugging Face API configuration
+HF_API_URL = "https://api-inference.huggingface.co/models/gpt2"
+HF_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")  # You'll need to set this in your environment
 
-Your question — “{user_input}” — reminded me of something I once sang:
+def generate_morrissey_style_email(user_input, lyric):
+    # Create a prompt that captures Morrissey's style
+    prompt = f"""Dear friend,
 
-    “{lyric}”
+Your question — "{user_input}" — reminded me of something I once sang:
+
+    "{lyric}"
+
+Let me tell you what I really think about this..."""
+
+    # Call Hugging Face API
+    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_length": 300,
+            "num_return_sequences": 1,
+            "no_repeat_ngram_size": 2,
+            "do_sample": True,
+            "top_k": 50,
+            "top_p": 0.95,
+            "temperature": 0.7,
+        }
+    }
+    
+    try:
+        response = requests.post(HF_API_URL, headers=headers, json=payload)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        
+        # Extract the generated text from the response
+        generated_text = response.json()[0]["generated_text"]
+        
+        # Ensure we have a proper signature
+        if "Yours" not in generated_text:
+            generated_text += "\n\nYours (begrudgingly),\nMorrissey"
+        
+        return generated_text
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling Hugging Face API: {e}")
+        # Fallback to a simple template if the API call fails
+        return f"""Dear friend,
+
+Your question — "{user_input}" — reminded me of something I once sang:
+
+    "{lyric}"
 
 I hope this clarifies nothing at all.
 
@@ -61,7 +105,7 @@ def get_morrissey_reply():
         chunk = lyric_chunks[top_index]
         print(">>> DEBUG: Matched chunk:", chunk)
 
-        email = generate_email_gpt(user_input, chunk)
+        email = generate_morrissey_style_email(user_input, chunk)
         print(">>> DEBUG: Mock email generated")
 
         return jsonify({
@@ -74,3 +118,26 @@ def get_morrissey_reply():
     except Exception as e:
         print(">>> ERROR in /api/morrissey:", str(e))
         return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
+
+# Update the route to use the new generator
+@morrissey_api.route("/generate_email", methods=["POST"])
+@cross_origin()
+def generate_email():
+    data = request.get_json()
+    user_input = data.get("user_input", "")
+    
+    # Get the most relevant lyric using your existing similarity search
+    user_embedding = model.encode([user_input])[0]
+    similarities = cosine_similarity([user_embedding], embeddings)[0]
+    most_similar_idx = np.argmax(similarities)
+    most_similar_lyric = lyric_chunks[most_similar_idx]
+    
+    # Generate the email using the API
+    email_text = generate_morrissey_style_email(user_input, most_similar_lyric)
+    
+    return jsonify({
+        "email": email_text,
+        "lyric": most_similar_lyric,
+        "song": line_sources[most_similar_idx]["song"],
+        "album": line_sources[most_similar_idx]["album"]
+    })

@@ -5,7 +5,7 @@ import os
 
 app = Flask(__name__)
 
-# ✅ Responds to all origins for any /api/* route
+# ✅ Only allow CORS from Vercel frontend
 CORS(app, resources={r"/api/*": {"origins": "https://morrisseybot-ui.vercel.app"}})
 
 app.register_blueprint(morrissey_api)
